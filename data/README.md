@@ -19,23 +19,30 @@ minimal leftover food
 The benchmark dataset includes a total of 14 food categories. Each category is assigned to a unique food ID:
 
 0. Background
-
 1. pasta with pesto
 2. pasta with tomato sauce
 3. pasta with meat sauce
 4. pasta with clams and mussels
 5. pilaw rice with peppers and peas
-
 6. grilled pork cutlet
 7. fish cutlet
 8. rabbit
 9. seafood salad
-
 10. beans
 11. basil potatoes
 12. salad
 13. bread
 
+## Tray composition
+
+1. pesto pasta, grilled pork cutlet, beans
+2. pasta with tomato sauce, fish cutlet, basil potatoes, salad
+3. tomato pasta, rabbit, salad
+4. pilaw rice with peppers and peas, fish cutlet, basil potatoes, salad, bread
+5. pasta with meat sauce, rabbit, beans, bread
+6. clam and mussel stir-fry, grilled pork chop, beans, salad
+7. pasta with clams and mussels, fish cutlet, basil potatoes, salad
+8. pasta with clams and mussels, seafood salad, basil potatoes, beans, salad
 
 ## Dataset structure
 
@@ -47,5 +54,3 @@ The dataset is organized as the following. A folder is provided for each tray, c
 - an image of the tray with minimal food leftover, with dishes in the different position (`leftover3.jpg`);
 - a `bounding_boxes` folder containing the bounding box annotations of each image;
 - a `masks` folder containing the segmentatio mask annotations of each image.
-
-
