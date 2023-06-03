@@ -10,12 +10,12 @@ using namespace std;
 
 #define NEIGHBORHOOD_X 9
 #define NEIGHBORHOOD_Y 9
-#define THRESHOLD Scalar(50,20,20)
+#define THRESHOLD_TOLERANCE Scalar(30,30,30)
 
 //bilateral filter because its smoothing when preserve the edges
 Mat applyBilateralFilter(const Mat &inputImage) {
     Mat filteredImage;
-    bilateralFilter(inputImage, filteredImage, 9, 75, 75);
+    bilateralFilter(inputImage, filteredImage, 9, 100,100);// 75, 75);
     return filteredImage;
 }
 //
@@ -117,42 +117,13 @@ void featMatching(Mat img1, Mat img2, Mat &Result_MATCHING){
       good_keypoints2.push_back(keypoints2[matches[j].trainIdx].pt);
 		}
 	}
-  cv::drawKeypoints(img1, keypoints1, Result_MATCHING);
+
+  int myradius=5;
+  img1.copyTo(Result_MATCHING);
+  for (int i=0;i<good_keypoints1.size();i++)
+    circle(Result_MATCHING,good_keypoints1[i],myradius,CV_RGB(100,0,0),-1,8,0);
+  //cv::drawKeypoints(img1, keypoints1, Result_MATCHING);
 	//cv::drawMatches(img1, keypoints1, img2, keypoints2, good_matches, Result_MATCHING, cv::Scalar::all(-1), cv::Scalar(-1), vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-}
-
-void onMouse(int event, int x, int y, int f, void* userdata){
-  if(event == EVENT_LBUTTONDOWN){
-    // Retriving the image from main
-    Mat img = *(Mat*) userdata;
-    Mat img_hsv;
-    cvtColor(img, img_hsv, COLOR_BGR2HSV);
-
-    // Preventing segfaults for looking over the image boundaries
-    if (y + NEIGHBORHOOD_Y > img.rows || x + NEIGHBORHOOD_X > img.cols){
-      return;
-    }
-
-    // Getting the mean of the RGB colors of a 9x9 NEIGHBORHOOD around the selected pixel
-    Rect rect(x,y,NEIGHBORHOOD_X,NEIGHBORHOOD_Y);
-    Scalar mean_value = mean(img_hsv(rect));
-    std::cout << "mean = " << mean_value << std::endl;
-    //std::cout << "NEIGHBORHOOD = " << img_out(rect).at<Vec3b> (0,0) << std::endl;
-
-    // Mask computation
-    Mat mask0, mask1, mask2;
-    inRange(img_hsv, Scalar(mean_value[0]-THRESHOLD[0], mean_value[1], mean_value[2]), Scalar(mean_value[0]+THRESHOLD[0], 255, 255), mask0);
-    inRange(img_hsv, Scalar(mean_value[0], mean_value[1]-THRESHOLD[1], mean_value[2]), Scalar(255, mean_value[1]+THRESHOLD[1], 255), mask1);
-    inRange(img_hsv, Scalar(mean_value[0], mean_value[1], mean_value[2]-THRESHOLD[2]), Scalar(255, 255, mean_value[2]+THRESHOLD[2]), mask2);
-    Mat mask = mask0 | mask1 | mask2;
-
-    // Create and show the window
-  	namedWindow("Thresholding mask");
-  	imshow("Thresholding mask", mask);
-    waitKey(0);
-    destroyWindow("Thresholding mask");
-    return;
-    }
 }
 
 int main(int argc, char **argv) {
@@ -189,14 +160,33 @@ int main(int argc, char **argv) {
   imshow("Image preprocessing", preprocImage);
   resizeWindow("Image preprocessing", Size(600,600));
   waitKey(0);
+  img1 = filteredImage1;
+  img2 = filteredImage2;
+
   //return 0;
 
   // 1. IMAGE THRESHOLDING
+  Mat img1_hsv, mask0, mask1, mask2, res, rgbchannel[3];
+  double thresh0, thresh1, thresh2;
+  cvtColor(img1, img1_hsv, COLOR_BGR2HSV);
+  split(img1_hsv, rgbchannel);
+  thresh0 = threshold(rgbchannel[0],mask0, 0, 255, THRESH_OTSU);
+  thresh1 = threshold(rgbchannel[1],mask1, 0, 255, THRESH_OTSU);
+  thresh2 = threshold(rgbchannel[2],mask2, 0, 255, THRESH_OTSU);
+  Scalar mean_value = Scalar(thresh0,thresh1, thresh2);
+  //std::cout << "mean = " << mean_value << std::endl;
+  inRange(img1, Scalar(mean_value[0], mean_value[1], mean_value[2]), Scalar(mean_value[0] +THRESHOLD_TOLERANCE[0], 255, 255), mask0);
+  inRange(img1, Scalar(mean_value[0], mean_value[1], mean_value[2]), Scalar(255, mean_value[1]+THRESHOLD_TOLERANCE[1], 255), mask1);
+  inRange(img1, Scalar(mean_value[0], mean_value[1], mean_value[2]), Scalar(255, 255, mean_value[2]+THRESHOLD_TOLERANCE[2]), mask2);
+  Mat mask = mask0 & mask1 & mask2;
+  dilate(mask, mask, Mat(), Point(-1,-1),10);
+  erode(mask, mask, Mat(), Point(-1,-1), 10);
+  dilate(mask, mask, Mat(), Point(-1,-1),25);
+  img1.copyTo(res, mask);
   namedWindow("Image thresholding");
-  imshow("Image thresholding", img1);
-  setMouseCallback("Image thresholding", onMouse, (void*)&img1);
+  imshow("Image thresholding", res);
   waitKey(0);
-  //return 0;
+  return 0;
 
   // 2. FEATURE EXTRACTION
   Mat Result_MATCHING;
