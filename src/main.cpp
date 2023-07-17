@@ -1,9 +1,4 @@
 #include <opencv2/opencv.hpp>
-#include <iostream>
-#include <string>
-#include "foodRecognition.h"
-#include "foodSegmentation.h"
-#include "leftoverEst.h"
 #include <opencv2/core/hal/interface.h>
 #include "opencv2/core.hpp"
 #include "opencv2/highgui.hpp"
@@ -15,357 +10,168 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/features2d/features2d.hpp"
 #include<opencv2/opencv_modules.hpp>
+#include <iostream>
+#include <string>
+#include <fstream>
+#include "foodRecognition.h"
+#include "foodSegmentation.h"
+#include "leftoverEst.h"
 
+std::vector<cv::Rect> readBoudingBox(const std::string& imagePath) {
 
-//bilateral filter because its smoothing when preserve the edges
-cv::Mat applyBilateralFilter(const cv::Mat& inputImage) {
-	cv::Mat filteredImage;
-	cv::bilateralFilter(inputImage, filteredImage, 5, 75, 75);
-	return filteredImage;
-}
+	std::ifstream inputFile(imagePath);
 
-cv::Mat applyContrastEnhancement(const cv::Mat& filteredImage) {
-	cv::Mat enhancedImage;
-	filteredImage.copyTo(enhancedImage);
-	// Convert the filtered image to the YCrCb color space
-	//cvtColor(filteredImage, enhancedImage, cv::COLOR_BGR2YCrCb);
-	// Split the YCrCb image into individual channels
-	cv::Mat channels[3];
-	split(enhancedImage, channels);
-
-	// Apply histogram equalization to the Y channel
-
-	equalizeHist(channels[0], channels[0]);
-	equalizeHist(channels[1], channels[1]);
-	equalizeHist(channels[2], channels[2]);
-
-	std::vector<cv::Mat> ccc = { channels[0],channels[1],channels[2] };
-	// Merge the enhanced channels back into the YCrCb image
-	merge(ccc, enhancedImage);
-
-	// Convert the enhanced image back to the BGR color space
-	//cvtColor(enhancedImage, enhancedImage, cv::COLOR_YCrCb2BGR);
-
-	return enhancedImage;
-}
-
-
-//Hist eq also do same thing, we can ignore it ?
-
-cv::Mat applyColorAdjustment(const cv::Mat& inputImage) {
-	cv::Mat adjustedImage;
-	// Convert the image to the LAB color space
-	cvtColor(inputImage, adjustedImage, cv::COLOR_BGR2Lab);
-
-	// Split the LAB image into L, a, and b channels
-	std::vector<cv::Mat> labChannels(3);
-	split(adjustedImage, labChannels);
-
-	// Apply color adjustment on the a and b channels
-	labChannels[1] += 10; // Example: increase the a channel by 10
-	labChannels[2] -= 10; // Example: decrease the b channel by 10
-
-	// Merge the modified channels back to LAB image
-	merge(labChannels, adjustedImage);
-
-	// Convert the LAB image back to the BGR color space
-	cvtColor(adjustedImage, adjustedImage, cv::COLOR_Lab2BGR);
-	return adjustedImage;
-}
-
-
-std::vector<cv::Vec3f> houghTransform(cv::Mat& img) {
-	std::vector<cv::Vec3f> circles;
-	cvtColor(img, img, cv::COLOR_BGR2GRAY);
-	cv::GaussianBlur(img, img, cv::Size(3, 3), 0, 0);
-	medianBlur(img, img, 3);
-	cv::HoughCircles(img, circles, cv::HOUGH_GRADIENT, 1,
-		200,  // change this value to detect circles with different distances to each other
-		200, 100, 0, 0 // change the last two parameters
-   // (min_radius & max_radius) to detect larger circles
-	);
-
-	for (size_t i = 0; i < circles.size(); i++)
+	if (!inputFile)
 	{
-		cv::Vec3i c = circles[i];
-		cv::Point center = cv::Point(c[0], c[1]);
-		// circle center
-		cv::circle(img, center, 1, cv::Scalar(0, 100, 100), 3, cv::LINE_AA);
-		// circle outline
-		int radius = c[2];
-		circle(img, center, radius, cv::Scalar(0, 0, 0), 3, cv::LINE_AA);
-		cv::imshow("Hough", img);
-	}
-	return circles;
-}
-
-std::vector<cv::KeyPoint> surfDetection(cv::Mat& img) {
-
-	//-- Step 1: Detect the keypoints using SURF Detector
-	int minHessian = 400;
-	cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(minHessian);
-	std::vector<cv::KeyPoint> keypoints;
-	detector->detect(img, keypoints);
-	//-- Draw keypoints
-	cv::Mat img_keypoints;
-	drawKeypoints(img, keypoints, img_keypoints);
-
-	//-- Show detected (drawn) keypoints
-	imshow("SURF Keypoints", img_keypoints);
-	return keypoints;
-}
-
-void siftDetection(cv::Mat& img, std::vector<cv::KeyPoint>& keypoints) {
-
-	cv::Ptr<cv::SIFT> siftPtr = cv::SIFT::create();
-	//std::vector<cv::KeyPoint> keypoints;
-	siftPtr->detect(img, keypoints);
-
-	// Add results to image and save.
-	cv::Mat output;
-	cv::drawKeypoints(img, keypoints, output);
-	cv::imshow("sift_result", output);
-	std::cout << keypoints.size() << std::endl;
-	//return keypoints;
-	siftPtr->clear();
-}
-
-
-void featureMatching(cv::Mat& img_1, cv::Mat& img_2) {
-
-	//-- Step 2: Calculate descriptors (feature vectors)
-	cv::SiftDescriptorExtractor extractor;
-	cv::Mat descriptors_1, descriptors_2;
-	std::vector<cv::KeyPoint> keypoints_1, keypoints_2;
-	
-	siftDetection(img_1, keypoints_1);
-
-	siftDetection(img_2, keypoints_2);
-	//std::vector<cv::KeyPoint> keypoints_2 = siftDetection(img_2);
-	std::cout << keypoints_1.size();
-	cv::cvtColor(img_1, img_1, cv::COLOR_RGB2GRAY);
-	cv::cvtColor(img_2, img_2, cv::COLOR_RGB2GRAY);
-	extractor.compute(img_1, keypoints_1, descriptors_1);
-	extractor.compute(img_2, keypoints_2, descriptors_2);
-
-	//-- Step 3: Matching descriptor vectors using FLANN matcher
-	cv::FlannBasedMatcher matcher;
-	std::vector< cv::DMatch > matches;
-	matcher.match(descriptors_1, descriptors_2, matches);
-
-	double max_dist = 0; double min_dist = 100;
-
-	//-- Quick calculation of max and min distances between keypoints
-	for (int i = 0; i < descriptors_1.rows; i++)
-	{
-		double dist = matches[i].distance;
-		if (dist < min_dist) min_dist = dist;
-		if (dist > max_dist) max_dist = dist;
+		std::cout << "Failed to open the file." << std::endl;
+		std::vector<cv::Rect> emptyVector;
+		return emptyVector;
 	}
 
-	printf("-- Max dist : %f \n", max_dist);
-	printf("-- Min dist : %f \n", min_dist);
+	std::vector<int> numbers;
 
-	//-- Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
-	//-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
-	//-- small)
-	//-- PS.- radiusMatch can also be used here.
-	std::vector< cv::DMatch > good_matches;
-
-	for (int i = 0; i < descriptors_1.rows; i++)
+	std::string line;
+	while (std::getline(inputFile, line))
 	{
-		if (matches[i].distance <= std::max(2 * min_dist, 0.02))
+		std::string token;
+		size_t pos = 0;
+
+		while ((pos = line.find(',')) != std::string::npos)
 		{
-			good_matches.push_back(matches[i]);
+			token = line.substr(0, pos);
+			numbers.push_back(std::stoi(token)); // Convert token to integer and store in vector
+			line.erase(0, pos + 1); // Erase processed token and comma
+		}
+
+		// Process the last token in the line (no comma after it)
+		if (!line.empty())
+		{
+			numbers.push_back(std::stoi(line)); // Convert token to integer and store in vector
+		}
+	}
+	int i = 1;
+	std::vector<cv::Rect> boundingBoxes;
+	std::vector<int> boundingBox;
+	for (auto item : numbers) {
+		boundingBox.push_back(item);
+		if (i % 4 == 0) {
+			cv::Rect rect(boundingBox[0], boundingBox[1], boundingBox[2], boundingBox[3]);
+			boundingBoxes.push_back(rect);
+			boundingBox.clear();
+		}
+		i++;
+	}
+
+	std::vector<cv::Rect> finalBoundingBoxes;
+	std::vector<bool>merged (boundingBoxes.size(),false);
+	// Check if the bounding boxes are intersected somehow, and merge the intersected ones.
+	for (int i = 0; i < boundingBoxes.size() - 1; i++) {
+		if (merged[i])
+			continue;
+		for (int j = i + 1;  j < boundingBoxes.size(); j++) {
+			if (merged[j])
+				continue;
+			if (rectanglesIntersect(boundingBoxes[i], boundingBoxes[j]) && (!merged[i]) && (!merged[j])) {
+				cv::Rect mergedRect = getBoundingRectangle(boundingBoxes[i], boundingBoxes[j]);
+				finalBoundingBoxes.push_back(mergedRect);
+				merged[i] = true;
+				merged[j] = true;
+			}
 		}
 	}
 
-	//-- Draw only "good" matches
-	cv::Mat img_matches;
-	drawMatches(img_1, keypoints_1, img_2, keypoints_2,
-		good_matches, img_matches, cv::Scalar::all(-1), cv::Scalar::all(-1),
-		std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-
-	//-- Show detected matches
-	imshow("Good Matches", img_matches);
-
-	for (int i = 0; i < (int)good_matches.size(); i++)
-	{
-		printf("-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx);
+	for (int i = 0; i < boundingBoxes.size(); i++) {
+		if (!merged[i]) {
+			finalBoundingBoxes.push_back(boundingBoxes[i]);
+		}
 	}
-
+	return finalBoundingBoxes;
 }
 
 
-int main(int argc, char** argv)
-{
+std::vector<std::vector<cv::Rect>> realAllBoundingBoxes(const std::string& path) {
+	auto imageBoudingBox = readBoudingBox(path + "//bounding_boxes//food_image_bounding_box.txt");
+	auto foodLeftoverBoundingBox1 = readBoudingBox(path + "//bounding_boxes//leftover1_bounding_box.txt");
+	auto foodLeftoverBoundingBox2 = readBoudingBox(path + "//bounding_boxes//leftover2_bounding_box.txt");
+	auto foodLeftoverBoundingBox3 = readBoudingBox(path + "//bounding_boxes//leftover3_bounding_box.txt");
+
+	std::vector<std::vector<cv::Rect>> result;
+	result.push_back(imageBoudingBox);
+	result.push_back(foodLeftoverBoundingBox1);
+	result.push_back(foodLeftoverBoundingBox2);
+	result.push_back(foodLeftoverBoundingBox3);
+
+	return result;
+}
+
+
+void readSegmentationMasks(const std::string& directory, std::vector<cv::Mat>& masks) {
+
+	std::string path = directory + "//masks//";
+	cv::Mat foodMask = cv::imread(path + "food_image_mask.png");
+	cv::Mat leftoverMask1 = cv::imread(path + "leftover1.png");
+	cv::Mat leftoverMask2 = cv::imread(path + "leftover2.png");
+	cv::Mat leftoverMask3 = cv::imread(path + "leftover3.png");
+
+	if (foodMask.empty() || leftoverMask1.empty() ||
+		leftoverMask2.empty() || leftoverMask3.empty()) {
+		std::cerr << "Could not load the image: " << std::endl;
+		return;
+	}
+	masks.push_back(foodMask);
+	masks.push_back(leftoverMask1);
+	masks.push_back(leftoverMask2);
+	masks.push_back(leftoverMask3);
+}
+
+std::string selectFolder() {
+
 	// loading and input validation
 	std::string trayNumber;
 	while (true) {
 		std::cout << "Tray number (1 to 8):" << std::endl;
 		std::cin >> trayNumber;
-		if (isdigit(trayNumber[0]) && stoi(trayNumber) >= 1 && stoi(trayNumber) <= 8){
+		if (isdigit(trayNumber[0]) && stoi(trayNumber) >= 1 && stoi(trayNumber) <= 8) {
 			break;
 		}
 	}
 	std::string imagePath = "..//dataset//tray" + trayNumber;
+	return imagePath;
+}
+
+int main(int argc, char** argv)
+{
+
+	std::string imagePath = selectFolder();
+	std::vector<cv::Mat> segMasks, images;
 	cv::Mat foodImage, foodLeftover1, foodLeftover2, foodLeftover3;
 	foodImage = cv::imread(imagePath + "//food_image.jpg", cv::IMREAD_COLOR);
 	foodLeftover1 = cv::imread(imagePath + "//leftover1.jpg", cv::IMREAD_COLOR);
 	foodLeftover2 = cv::imread(imagePath + "//leftover2.jpg", cv::IMREAD_COLOR);
 	foodLeftover3 = cv::imread(imagePath + "//leftover3.jpg", cv::IMREAD_COLOR);
+	images.push_back(foodImage);
+	images.push_back(foodLeftover1);
+	images.push_back(foodLeftover2);
+	images.push_back(foodLeftover3);
+	readSegmentationMasks(imagePath, segMasks);
 	// Check if the images are loaded correctly:
 	if (foodImage.empty() || foodLeftover1.empty() ||
 		foodLeftover2.empty() || foodLeftover3.empty()) {
 		std::cerr << "Could not load the image: " << std::endl;
 		return 1;
 	}
-	//cv::namedWindow("Original_image", cv::WINDOW_NORMAL);
-	//cv::namedWindow("Leftover_1", cv::WINDOW_NORMAL);
-	//cv::namedWindow("Leftover_2", cv::WINDOW_NORMAL);
-	//cv::namedWindow("Leftover_3", cv::WINDOW_NORMAL);
-	//imshow("Original_image", foodImage);
-	//imshow("Leftover_1", foodLeftover1);
-	//imshow("Leftover_2", foodLeftover2);
-	//imshow("Leftover_3", foodLeftover3);
-
-	FoodRecognition recognition(foodImage);
-	cv::Mat cannyRes = recognition.runCanny(20, 60);
-
-	cv::Mat filteredImage = applyBilateralFilter(foodImage);
-	cv::Mat enhancedImage = applyContrastEnhancement(filteredImage);
-	cv::Mat colorAdjustedImage = applyColorAdjustment(enhancedImage);
-	//imshow("bilateral", filteredImage);
-	//imshow("contrast", enhancedImage);
-	//imshow("colorAdjustment", filteredImage);
 	
-	//surfDetection(filteredImage);
-	//siftDetection(filteredImage);
-
+	auto allBoundingBoxes = realAllBoundingBoxes(imagePath);
+	std::vector<cv::Rect> foodBBoxCoordinates = allBoundingBoxes[3];
 	
-	cv::Mat filteredImageCopy;
-
-	filteredImage.copyTo(filteredImageCopy);
-	std::vector<cv::Vec3f> circles = houghTransform(filteredImage);
-	// try hough transform on canny
-
-
-	// Setup a rectangle to define your region of interest
-	cv::Rect myROI(circles[0][0] - circles[0][2], 0, circles[0][2] * 2, filteredImage.rows);
-
-	// Crop the full image to that image contained by the rectangle myROI
-	// Note that this doesn't copy the data
-	cv::Mat croppedRef(filteredImageCopy, myROI);
-
-	cv::Mat cropped;
-	// Copy the data into new matrix
-	croppedRef.copyTo(cropped);
-
-	imshow("Cropped", cropped);
-	//featureMatching(cropped, foodLeftover1);
-
-
-	cv::Ptr<cv::SIFT> siftPtr = cv::SIFT::create();
-	std::vector<cv::KeyPoint> keypoints;
-	siftPtr->detect(foodImage, keypoints);
-
-
-	cv::Ptr<cv::SIFT> siftPtr2 = cv::SIFT::create();
-	std::vector<cv::KeyPoint> keypoints2;
-	siftPtr2->detect(cropped, keypoints2);
-
-
-	cv::SiftDescriptorExtractor extractor;
-	cv::Mat descriptors_1, descriptors_2;
-
-
-	extractor.compute(foodImage, keypoints, descriptors_1);
-	extractor.compute(cropped, keypoints2, descriptors_2);
-
-	//-- Step 3: Matching descriptor vectors using FLANN matcher
-	cv::FlannBasedMatcher matcher;
-	std::vector< cv::DMatch > matches;
-	matcher.match(descriptors_1, descriptors_2, matches);
-
-	double max_dist = 0; double min_dist = 100;
-
-	//-- Quick calculation of max and min distances between keypoints
-	for (int i = 0; i < descriptors_1.rows; i++)
-	{
-		double dist = matches[i].distance;
-		if (dist < min_dist) min_dist = dist;
-		if (dist > max_dist) max_dist = dist;
+	cv::Mat segmentedFoodImage(foodImage.size(),CV_8U);
+	std::vector<cv::Mat> segmentationResults;
+	for (const auto boundingBox : foodBBoxCoordinates) {
+		auto res = GrabcutAlgorithm(foodImage, boundingBox);
+		res.copyTo(segmentedFoodImage(boundingBox));
 	}
-
-	printf("-- Max dist : %f \n", max_dist);
-	printf("-- Min dist : %f \n", min_dist);
-
-	//-- Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
-	//-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
-	//-- small)
-	//-- PS.- radiusMatch can also be used here.
-	std::vector< cv::DMatch > good_matches;
-
-	for (int i = 0; i < descriptors_1.rows; i++)
-	{
-		if (matches[i].distance <= std::max(2 * min_dist, 0.02))
-		{
-			good_matches.push_back(matches[i]);
-		}
-	}
-
-	//-- Draw only "good" matches
-	cv::Mat img_matches;
-	drawMatches(foodImage, keypoints, cropped, keypoints2,
-		good_matches, img_matches, cv::Scalar::all(-1), cv::Scalar::all(-1),
-		std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-
-	//-- Show detected matches
-	imshow("Good Matches", img_matches);
-
-	for (int i = 0; i < (int)good_matches.size(); i++)
-	{
-		printf("-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx);
-	}
-
-
-
-
-	/*
-	cv::Mat croppedFloat;
-	cropped.convertTo(croppedFloat, CV_32FC3, 1. / 255);
-	imshow("float", croppedFloat);
-	//cv::imshow("cropped", cropped);
-	cv::Mat labels;
-	//cv::kmeans(cropped, 2, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0), 10, cv::KMEANS_PP_CENTERS);
-		//imshow("k-means", cropped);
-	cv::Mat mask;
-	cv::inRange(cropped, cv::Scalar(60, 60, 60), cv::Scalar(255, 255, 255), mask);
-	cropped.setTo(cv::Scalar(0, 0, 0), mask);
-	cv::imshow("cropped", cropped);
-
-
-	// convert to binary
-	cv::Mat bw;
-	cvtColor(cropped, bw, cv::COLOR_BGR2GRAY);
-	threshold(bw, bw, 60, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-	imshow("binary", bw);
-
-
-	// Perform the distance transform algorithm
-	cv::Mat dist;
-	distanceTransform(bw, dist, cv::DIST_L2, 3);
-	// Normalize the distance image for range = {0.0, 1.0}
-	// so we can visualize and threshold it
-	normalize(dist, dist, 0, 1.0, cv::NORM_MINMAX);
-	imshow("Distance Transform Image", dist);
-
-	threshold(dist, dist, 0.3, 1.0, cv::THRESH_BINARY);
-	// Dilate a bit the dist image
-	cv::Mat kernel1 = cv::Mat::ones(3, 3, CV_8U);
-	dilate(dist, dist, kernel1);
-	imshow("Peaks", dist);
-	*/
+	
+	cv::imshow("dest", segmentedFoodImage);
 	cv::waitKey(0);
 	return 0;
 }

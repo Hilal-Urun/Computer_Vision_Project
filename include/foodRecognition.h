@@ -8,18 +8,12 @@
 #include<vector>
 
 
-// class for food recognition
-class FoodRecognition
-{
-public:
-	FoodRecognition(cv::Mat img);
-	~FoodRecognition();
-	cv::Mat getFoodImage();
-	cv::Mat runCanny(int lowThreshold, int highThreshold);
-	void drawHistogram(cv::Mat img);
+double calculateIoU(const cv::Rect& bbox1, const cv::Rect& groundTruth);
 
-private:
 
-	cv::Mat foodImage;
-	cv::Mat cannyResult;
-};
+//double calculateAP(const std::vector<cv::Rect>& gtBboxes, const std::vector<cv::Rect>& predBboxes, double iouThreshold);
+
+double meanAveragePrecision();
+
+
+double foodLeftoverEstimation(const cv::Mat& reference, const cv::Mat& image, const cv::Rect& bbox1, const cv::Rect& bbox2);
