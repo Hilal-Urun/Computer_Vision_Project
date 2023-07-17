@@ -9,7 +9,9 @@ find_package(OpenCV REQUIRED)
 include_directories(include ${OpenCV_INCLUDE_DIRS})
 
 # Create executables
-add_executable(Main src/main.cpp src/foodRecognition.cpp src/foodSegmentation.cpp src/leftoverEst.cpp)
+add_executable(Main src/main.cpp src/foodRecognition.cpp src/dataHandling.cpp)
+add_executable(Performances src/performances.cpp src/dataHandling.cpp src/resultsEvaluation.cpp)
 
 # Link against OpenCV library
 target_link_libraries(Main ${OpenCV_LIBS})
+target_link_libraries(Performances ${OpenCV_LIBS})

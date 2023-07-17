@@ -1,7 +1,7 @@
 #include <opencv2/opencv.hpp>
 
-#include "foodRecognition.h"
 #include "dataHandling.h"
+#include "resultsEvaluation.h"
 
 using namespace cv;
 using namespace std;
