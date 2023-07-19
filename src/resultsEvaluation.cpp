@@ -54,3 +54,36 @@ double calculateMeanIoU(const std::vector<cv::Rect>& gtBboxes, const std::vector
     }
     return meanIoU;
 }
+
+
+
+double foodLeftoverEstimation(const cv::Mat& before, const cv::Mat& after, const cv::Rect& bboxBefore, const cv::Rect& bboxAfter) {
+
+    auto beforeImg = before(bboxBefore);
+    auto afterImg = after(bboxAfter);
+    double pixelCountBefore = 0, pixelCountAfter = 0;
+    for (int y = 0; y < beforeImg.rows; ++y)
+    {
+        for (int x = 0; x < beforeImg.cols; ++x)
+        {
+            auto pixel = beforeImg.at<uchar>(y, x);
+            if (pixel != 0) {
+                pixelCountBefore += 1;
+            }
+        }
+    }
+
+    for (int y = 0; y < afterImg.rows; ++y)
+    {
+        for (int x = 0; x < afterImg.cols; ++x)
+        {
+            auto pixel = afterImg.at<uchar>(y, x);
+            if (pixel != 0) {
+                pixelCountAfter += 1;
+            }
+        }
+    }
+    double r = pixelCountAfter / pixelCountBefore;
+
+    return r;
+}
