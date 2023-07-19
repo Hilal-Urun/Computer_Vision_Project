@@ -15,8 +15,8 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 	char* trayN = argv[1];
-	string tray_dir = string("..//data//test//tray") + trayN;
-	string results_dir = string("..//data//results//tray") + trayN;
+	string tray_dir = string("data/test/tray") + trayN;
+	string results_dir = string("data/results/tray") + trayN;
 
 	std::vector<cv::Mat> groundTruthMasks;
 	std::vector<cv::Mat> resultsMasks;
@@ -34,17 +34,17 @@ int main(int argc, char** argv) {
 	}
 
 	// For food segmentation:
-	// The vector size is supposed to be 4 (0 (before), 1(after1), 2(after2), 3(after3)), so we loop on the "after "images 
+	// The vector size is supposed to be 4 (0 (before), 1(after1), 2(after2), 3(after3)), so we loop on the "after "images
 	// of difficulties 1, and 2, i.e: for i = 1, and 2
 	for (int i = 1; i < resultsBoundingBoxes.size() - 1; i++) {
-		
+
 		double result = calculateMeanIoU(groundTruthBoundingBoxes[0], resultsBoundingBoxes[i]);
 		std::cout << "mIoU of (before) image compared to difficulty image number" << i << " is: " << result << std::endl;
 
 	}
 
 	// For leftover estimation:
-	// The vector size is supposed to be 4 (0 (before), 1(after1), 2(after2), 3(after3)), so we loop on all of the "after "images 
+	// The vector size is supposed to be 4 (0 (before), 1(after1), 2(after2), 3(after3)), so we loop on all of the "after "images
 	double result = 0;
 	for (int i = 1; i < resultsBoundingBoxes.size() ; i++) {
 		for (int j = 1; j < resultsBoundingBoxes[i].size(); j++) {

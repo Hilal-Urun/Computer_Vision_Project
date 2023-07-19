@@ -73,24 +73,14 @@ cv::Mat GrabcutAlgorithm(const cv::Mat& src, const cv::Rect& boundingBox) {
 double featMatching(Mat img1, Mat img2, Mat &Result_MATCHING){
 	double ratio = 3; //3;
   cv::Ptr<cv::Feature2D> sift = cv::SIFT::create();
-  cv::Ptr<cv::FastFeatureDetector> fast = cv::FastFeatureDetector::create();
-  cv::FlannBasedMatcher Matcher_FLANN;
   std::vector<cv::KeyPoint> keypoints1, keypoints2;
-  //vector<cv::DMatch> matches, good_matches;
 	cv::Ptr<cv::DescriptorMatcher> knn_matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
-  cv::Ptr<cv::DescriptorMatcher> Matcher_SIFT = cv::BFMatcher::create(cv::NORM_L2);			// Brute-Force matcher create method
   Mat img1_gray, img2_gray, descr1, descr2;
 
   sift->detectAndCompute(img1, cv::Mat(), keypoints1, descr1);
   sift->detectAndCompute(img2, cv::Mat(), keypoints2, descr2);
-  //Matcher_SIFT->match(descr1, descr2, matches);
 	std::vector< std::vector<DMatch> > knn_matches;
 	knn_matcher->knnMatch( descr1, descr2, knn_matches, 2 );
-  /*fast->detect(img1, keypoints1);
-	fast->detect(img2, keypoints2);
-	sift->compute(img1, keypoints1, descr1);
-	sift->compute(img2, keypoints2, descr2);*/
-  //Matcher_FLANN.match(descr1, descr2, matches);
 
 	//-- Filter matches using the Lowe's ratio test
 	const float ratio_thresh = 0.8f;
@@ -148,50 +138,65 @@ double histMatching(Mat img1, Mat img2){
 		comp_i = compareHist( hist_base, hist_test, compare_method );
 		if(compare_method == 1){
 			base_test += weights[compare_method]*1/comp_i;
-			//cout << weights[compare_method]*1/comp_i << endl;
 		}
 		else{
 			base_test += weights[compare_method]*comp_i;
-			//cout << weights[compare_method]*comp_i << endl;
 		}
 	}
-	//cout << base_test << endl;
 	return base_test;
 }
 
 std::vector<std::tuple<int, int>> boxesMatch(cv::Mat img1, cv::Mat img2, cv::Mat mask1, cv::Mat mask2, std::vector<cv::Rect> boundingBoxes1, std::vector<cv::Rect> boundingBoxes2){
 	std::vector<std::tuple<int, int>> matches;
-
 	cv::Rect bb1, bb2;
 	cv::Mat segmented1, segmented2, resultFeature;
 	img1.copyTo(segmented1, mask1);
 	img2.copyTo(segmented2, mask2);
-	// cv::namedWindow("2:intermediate_result");
-	// cv::imshow("check", segmented1);
-	// cv::waitKey(0);
-	// cv::imshow("check", segmented2);
-	// cv::waitKey(0);
-	for(int j = 0; j<boundingBoxes2.size(); j++){
+
+	int maxJ,maxK;
+	bool caseSwitch = (boundingBoxes2.size() <= boundingBoxes1.size());
+	if(caseSwitch){
+		maxJ = boundingBoxes2.size();
+		maxK = boundingBoxes1.size();
+	}
+	else{
+		maxJ = boundingBoxes1.size();
+		maxK = boundingBoxes2.size();
+	}
+
+	std::vector<int> givenCheck(maxK, 0);
+	for(int j = 0; j<maxJ; j++){
 		//checked bounding box
-		bb2 = boundingBoxes2[j];
+		if(caseSwitch){
+			bb2 = boundingBoxes2[j];
+		}
+		else{
+			bb2 = boundingBoxes1[j];
+		}
+
 
 		double matchFeature, matchHist, totalMatch, bestMatch = 0.0;
 		int best_k = 0;
-		for( int k = 0;k< boundingBoxes1.size(); k++){
+		for( int k = 0;k< maxK; k++){
 			//checked leftover bounding box
-			bb1 = boundingBoxes1[k];
+			if(caseSwitch){
+				bb1 = boundingBoxes1[k];
+			}
+			else{
+				bb1 = boundingBoxes2[k];
+			}
 
 			//computiong total match
 			matchFeature = featMatching(img1(bb1), img2(bb2), resultFeature);
 			matchHist = histMatching(img1(bb1), img2(bb2));
-			//cout << matchFeature << " " << matchHist << endl;
 			totalMatch = 0.02*matchFeature + 100*matchHist;
 			//totalMatch = matchHist;
 
 			//computing best match
-			if( totalMatch > bestMatch){
+			if( totalMatch > bestMatch && givenCheck[k] == 0){
 				bestMatch = totalMatch;
 				best_k = k;
+				givenCheck[k] = 1;
 			}
 		}
 		matches.push_back(std::tuple<int, int>{best_k, j});
