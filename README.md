@@ -13,3 +13,28 @@ In more detail, the system to be developed should be able to 1) recognize and lo
 
 ![Leftover Example](references/leftoverEx.png)
 ![Results Example](references/resultsEx.png)
+
+## Software usage
+First of all, in the parent directory a cmake building procedure is needed:
+```
+  cmake .
+  make
+```
+This command will create the two main executable files "Performances.sh" and "Main.sh". They both require the number of the tested tray as an input.
+```
+  ./Performances trayN
+  ./Main trayN
+```
+A full execution, for all the test tray, can be run with
+```
+  ./execAll
+```
+Be aware that the execution can take some time.
+It has already be done and the results can be found in the [results](data/results) directory.
+
+## Results example
+Tray 1
+
+![Food Result](data/results/tray1/foodRecognition0.jpg)
+![Leftover Result](data/results/tray1/foodRecognition1.jpg)
+![Estimation Result](data/results/tray1/leftoverEst1.jpg)
