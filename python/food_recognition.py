@@ -6,7 +6,8 @@ from torchvision import transforms as torchtrans
 from PIL import Image
 
 import transforms as T
-
+"""First model shoulf downloaded from 
+https://drive.google.com/file/d/1TiF4E_aFoLkuL76gmO9qZUILTTjAblZH/view?usp=sharing"""
 
 def load_model(model_path, num_classes):
     model = torch.load(model_path)
