@@ -135,7 +135,7 @@ void savemIoU(std::string results_dir, std::vector<double> mIoU) {
 	}
 
 	for(int i = 0; i < mIoU.size(); i++){
-		outputFile << "Image id"+std::to_string(i+1)+": ";
+		outputFile << "Image id"+std::to_string(i)+": ";
 		outputFile << mIoU[i];
 		outputFile << "\n";
 		}

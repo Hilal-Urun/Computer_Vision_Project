@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 	// The vector size is supposed to be 4 (0 (before), 1(after1), 2(after2), 3(after3)), so we loop on the "after "images
 	// of difficulties 1, and 2, i.e: for i = 1, and 2
 	vector<double> mIoUres;
-	for (int i = 1; i < resultsBoundingBoxes.size(); i++) {
+	for (int i = 0; i < resultsBoundingBoxes.size(); i++) {
 		double result = calculateMeanIoU(groundTruthBoundingBoxes[0], resultsBoundingBoxes[i]);
 		mIoUres.push_back(result);
 		std::cout << "mIoU of (before) image compared to difficulty image number" << i << " is: " << result << std::endl;
