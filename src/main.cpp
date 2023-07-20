@@ -22,8 +22,8 @@ int main(int argc, char **argv){
 	string tray_dir = string("data/test/tray")+trayN;
 	string results_dir = string("data/results/tray")+trayN;
 
-  // Computing and saving bounding boxes and mask
-  cout << "Computing and saving bounding boxes and mask..." << endl;
+  // Reading pre-computed bounding boxes and computing masks
+  cout << "Reading pre-computed bounding boxes and computing masks..." << endl;
   vector<Mat> trayImages;
 	vector<vector<cv::Rect>> trayBoxes;
   vector<vector<Mat>> trayMasks;
@@ -66,12 +66,12 @@ int main(int argc, char **argv){
     foodImage.copyTo(resultSeg, readMask(results_dir, i));
     hconcat(resultBB, resultSeg, result);
     resize(result, result, Size(SHOW_WIDTH*2, SHOW_HEIGHT), INTER_LINEAR); //resize down
-    namedWindow("Bounding boxes and Segmentation result");
-		imshow("Bounding boxes and Segmentation result", result);
-    waitKey(0);
+    imwrite(results_dir+"/foodRecognition"+to_string(i)+".jpg",result);
+    // namedWindow("Bounding boxes and Segmentation result");
+		// imshow("Bounding boxes and Segmentation result", result);
+    // waitKey(0);
   }
-  cout << "" << endl;
-  destroyWindow("Bounding boxes and Segmentation result");
+  //destroyWindow("Bounding boxes and Segmentation result");
 
   //Leftover estimation
   cout << "Leftover estimation..." << endl;
@@ -103,18 +103,18 @@ int main(int argc, char **argv){
     foodImage.copyTo(leftImage);
     loImage.copyTo(rightImage);
     for(int j = 0; j < matches.size(); j++){
-      cout << colorNames[j] << ": " << leftoverValues[j] << endl;
       double leftorver_j = leftoverValues[j];
       Rect matchedBoxLeft = foodBoxes[get<0>(matches[j])];
       Rect matchedBoxRight = loBoxes[get<1>(matches[j])];
       Point pt1(matchedBoxLeft.x, matchedBoxLeft.y);
       Point pt2(matchedBoxLeft.x+matchedBoxLeft.width, matchedBoxLeft.y+matchedBoxLeft.height);
       rectangle( leftImage, pt1, pt2, colors[j], 2, LINE_8);
-      Point pt3(matchedBoxRight.x, matchedBoxRight.y);
-      Point pt4(matchedBoxRight.x+matchedBoxRight.width, matchedBoxRight.y+matchedBoxRight.height);
-      rectangle( rightImage, pt3, pt4, colors[j], 2, LINE_8);
+      Point pt4(matchedBoxRight.x, matchedBoxRight.y);
+      Point pt5(matchedBoxRight.x+matchedBoxRight.width, matchedBoxRight.y+matchedBoxRight.height);
+      Point pt6(matchedBoxRight.x, matchedBoxRight.y+matchedBoxRight.height);
+      rectangle( rightImage, pt4, pt5, colors[j], 2, LINE_8);
+      putText( rightImage, "R: "+to_string(leftoverValues[j]), pt6, FONT_HERSHEY_PLAIN, 3, colors[j] );
     }
-    namedWindow("Leftover estimation");
     try{
       hconcat(leftImage, rightImage, leftoverComparison);
       resize(leftoverComparison, leftoverComparison, Size(SHOW_WIDTH*2, SHOW_HEIGHT), INTER_LINEAR); //resize down
@@ -124,16 +124,10 @@ int main(int argc, char **argv){
       resize(rightImage, rightImage, Size(SHOW_WIDTH, SHOW_HEIGHT), INTER_LINEAR);
       hconcat(leftImage, rightImage, leftoverComparison);
     }
-    Point pt5(leftoverComparison.rows/2-25, leftoverComparison.cols-10);
-    Point pt6(leftoverComparison.rows/2+25, leftoverComparison.cols);
-    rectangle( leftoverComparison, pt5, pt6, colors[3], FILLED, LINE_8);
-    for(int l = 0; l<leftoverValues.size();l++){
-        Point pt7(leftoverComparison.rows/2-20, leftoverComparison.cols-8+2*l);
-        putText( leftoverComparison, to_string(leftoverValues[l]), pt7, FONT_HERSHEY_PLAIN, 2, colors[l] );
-    }
-    imshow("Leftover estimation", leftoverComparison);
-    waitKey(0);
-    cout << "" << endl;
+    imwrite(results_dir+"/leftoverEst"+to_string(k+1)+".jpg",leftoverComparison);
+    // namedWindow("Leftover estimation");
+    // imshow("Leftover estimation", leftoverComparison);
+    // waitKey(0);
   }
 
   return 0;

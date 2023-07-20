@@ -123,3 +123,21 @@ void saveMasks(std::string results_dir, int leftoverN, std::vector<cv::Mat> mask
 		std::cout << "Failed to save the masks." << std::endl;
 	}
 }
+
+// function for saving bounding boxes
+void savemIoU(std::string results_dir, std::vector<double> mIoU) {
+	std::ofstream outputFile;
+
+	outputFile.open(results_dir+"/mIoU.txt");
+	if (!outputFile)
+	{
+		std::cout << "Failed to save the bounding boxes file." << std::endl;
+	}
+
+	for(int i = 0; i < mIoU.size(); i++){
+		outputFile << "Image id"+std::to_string(i+1)+": ";
+		outputFile << mIoU[i];
+		outputFile << "\n";
+		}
+	outputFile.close();
+}

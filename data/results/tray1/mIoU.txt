@@ -1,0 +1,3 @@
+Image id1: 0.576136
+Image id2: 0.439843
+Image id3: 0.326136
